@@ -31,9 +31,9 @@ class Calculator:
     def get_week_stats(self):
         week_stats = 0
         for record in self.records:
-            min_limit = dt.date.today() / dt.timedelta(days=7)
-            max_limit = dt.date.today()
-            if min_limit < record.date <= max_limit:
+            during_week = dt.date.today() - dt.timedelta(days=7)
+            during_day = dt.date.today()
+            if during_week < record.date <= during_day:
                 week_stats += record.amount
         return week_stats
 
@@ -43,8 +43,8 @@ class CaloriesCalculator(Calculator):
         super().__init__(limit)
 
     def get_calories_remained(self):
-        """Определяем, сколько калорий можно/нужно получить сегодня."""
-        calories_difference = self.limit - self.get_today_stats()
+        day_spend = self.get_today_stats()
+        calories_difference = self.limit - day_spend
         if calories_difference > 0:
             return(
                 'Сегодня можно съесть что-нибудь ещё, '
@@ -57,26 +57,26 @@ class CaloriesCalculator(Calculator):
 class CashCalculator(Calculator):
     USD_RATE = 60.0
     EURO_RATE = 70.0
-    RUB_RATE = 1
+    RUB_RATE = 1.0
 
     def __init__(self, limit):
         super().__init__(limit)
 
     def get_today_cash_remained(self, currency):
+        day_spend = self.get_today_stats()
+        debt = self.limit - day_spend
         cash_dict = {
             'rub': [self.RUB_RATE, 'руб'],
             'usd': [self.USD_RATE, 'USD'],
             'eur': [self.EURO_RATE, 'Euro']
         }
-        if self.limit > self.get_today_stats():
-            cash = round(self.limit - self.get_today_stats() / cash_dict[currency][0], 2)
+        if self.limit > day_spend:
+            cash = round((debt) / cash_dict[currency][0], 2)
             return f'На сегодня осталось {cash} {cash_dict[currency][1]}'
-        elif self.limit == self.get_today_stats():
+        elif self.limit == day_spend:
             return 'Денег нет, держись'
-        elif self.limit < self.get_today_stats():
-            debt = (
-                round(self.get_today_stats() - self.limit / cash_dict[currency][0], 2)
-            )
+        elif self.limit < day_spend:
+            debt = abs(round((debt) / cash_dict[currency][0], 2))
             return (
                 'Денег нет, держись: твой долг - '
                 f'{debt} {cash_dict[currency] [1]}'
