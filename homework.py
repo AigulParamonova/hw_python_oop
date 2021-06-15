@@ -24,39 +24,35 @@ class Calculator:
 
     def get_today_stats(self):
         today = dt.date.today()
-        today_stats = [
+        return sum(
             record.amount
             for record in self.records if record.date == today
-        ]
-        return sum(today_stats)
+        )
 
     def get_week_stats(self):
         during_day = dt.date.today()
         during_week = during_day - dt.timedelta(days=7)
-        week_stats = [
+        return sum(
             record.amount
             for record in self.records
             if during_week < record.date <= during_day
-        ]
-        return sum(week_stats)
+        )
 
     def difference(self):
         return self.limit - self.get_today_stats()
 
 
 class CaloriesCalculator(Calculator):
-    def __init__(self, limit):
-        super().__init__(limit)
+    KEEP_EATING = (
+        'Сегодня можно съесть что-нибудь ещё, '
+        'но с общей калорийностью не более {difference} кКал'
+    )
 
     def get_calories_remained(self):
-        keep_eating = (
-            'Сегодня можно съесть что-нибудь ещё, '
-            f'но с общей калорийностью не более {self.difference()} кКал'
-        )
-        if self.difference() > 0:
-            return keep_eating.format()
-        else:
-            return 'Хватит есть!'
+        difference = self.difference()
+        if difference > 0:
+            return self.KEEP_EATING.format(difference=self.difference())
+        return 'Хватит есть!'
 
 
 class CashCalculator(Calculator):
@@ -64,28 +60,31 @@ class CashCalculator(Calculator):
     EURO_RATE = 70.0
     RUB_RATE = 1.0
     CASH_DICT = {
-        'rub': [RUB_RATE, 'руб'],
-        'usd': [USD_RATE, 'USD'],
-        'eur': [EURO_RATE, 'Euro']
+        'rub': (RUB_RATE, 'руб'),
+        'usd': (USD_RATE, 'USD'),
+        'eur': (EURO_RATE, 'Euro')
     }
 
-    def __init__(self, limit):
-        super().__init__(limit)
+    BALANCE = 'На сегодня осталось {cash} {type_of_currency}'
+    CREDIT = 'Денег нет, держись: твой долг - {debt} {type_of_currency}'
+    NOTICE = 'Недопустимое значение валюты {currency}'
+    NO_MONEY = 'Денег нет, держись'
 
     def get_today_cash_remained(self, currency):
-        day_spend = self.get_today_stats()
-        selected_currency, type_of_currency = self.CASH_DICT[currency]
-        cash = round(self.difference() / selected_currency, 2)
-        debt = abs(cash)
-        balance = f'На сегодня осталось {cash} {type_of_currency}'
-        credit = f'Денег нет, держись: твой долг - {debt} {type_of_currency}'
-        notice = f'Недопустимое значение валюты {currency}'
         if currency not in self.CASH_DICT:
-            raise ValueError(notice.format())
-        elif self.limit > day_spend:
-            return balance.format()
+            raise ValueError(self.NOTICE.format(currency=currency))
+        selected_currency, type_of_currency = self.CASH_DICT[currency]
+        day_spend = self.get_today_stats()
+        difference = self.difference()
+        cash = round(difference / selected_currency, 2)
+        debt = abs(cash)
+        if self.limit > day_spend:
+            return self.BALANCE.format(
+                cash=cash, type_of_currency=type_of_currency
+            )
         elif self.limit < day_spend:
-            return credit.format()
+            return self.CREDIT.format(
+                debt=debt, type_of_currency=type_of_currency
+            )
         else:
-            return 'Денег нет, держись'
-        return None
+            return self.NO_MONEY
